@@ -1,0 +1,20 @@
+{
+  "name": "profligate",
+  "version": "1.0.0",
+  "description": "An application built specifically to help you stop spending your money recklessly",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js"
+  },
+  "keywords": [
+    "spendThrift",
+    "profligate",
+    "expenditure"
+  ],
+  "author": "Akanksha Snehal",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}
