@@ -1,20 +1,14 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import Mailgen from "mailgen";
+
+// Initialize Resend with your API key
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const mailGenerator = new Mailgen({
   theme: "default",
   product: {
     name: "Profligate",
     link: process.env.CLIENT_URL || "http://localhost:5173",
-  },
-});
-
-// Create the Gmail Transporter
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER, // Your gmail address
-    pass: process.env.EMAIL_PASS, // The 16-letter App Password
   },
 });
 
@@ -60,27 +54,22 @@ const forgotPasswordMailGenContent = (name, passwordResetUrl) => {
 
 const sendEmail = async (options) => {
   const { to, subject, mailgenContent } = options;
-  if (!to || !subject || !mailgenContent) {
-    throw new Error("Missing required email parameters.");
-  }
-
   const html = mailGenerator.generate(mailgenContent);
   const text = mailGenerator.generatePlaintext(mailgenContent);
 
-  const message = {
-    from: `"Profligate" <${process.env.EMAIL_USER}>`,
-    to,
-    subject,
-    text,
-    html,
-  };
-
   try {
-    const info = await transporter.sendMail(message);
-    console.log("Email sent successfully:", info.messageId);
-    return info;
+    // Resend uses HTTPS (Port 443) which Render CANNOT block
+    const data = await resend.emails.send({
+      from: "Profligate <onboarding@resend.dev>",
+      to,
+      subject,
+      html,
+      text,
+    });
+    console.log("Email sent via Resend:", data);
+    return data;
   } catch (error) {
-    console.error("Nodemailer Error:", error);
+    console.error("Resend Error:", error);
     throw error;
   }
 };
