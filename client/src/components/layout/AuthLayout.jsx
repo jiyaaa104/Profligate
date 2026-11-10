@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
+import AppBackground from "../backgrounds/AppBackground";
 
 /**
  * AuthLayout — Reusable glassmorphic auth container
@@ -9,10 +10,9 @@ import { ShieldCheck } from "lucide-react";
  */
 export default function AuthLayout({ children, title, subtitle }) {
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-navy-900">
-      {/* Ambient background glows */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-brand-emerald/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-10 right-10 w-80 h-80 bg-slate-800/40 rounded-full blur-[100px] pointer-events-none" />
+    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden">
+      {/* Animated Micro Slats background (fixed, behind content) */}
+      <AppBackground />
 
       {/* Glass card panel */}
       <div className="relative z-10 w-full max-w-[420px] glass-panel-glow rounded-2xl p-8 sm:p-10 text-center">

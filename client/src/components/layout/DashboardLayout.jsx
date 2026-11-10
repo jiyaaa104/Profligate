@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import api from "../../services/api";
+import AppBackground from "../backgrounds/AppBackground";
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -47,10 +48,9 @@ export default function DashboardLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-navy-900 text-slate-100 flex flex-col md:flex-row relative overflow-x-hidden">
-      {/* Background ambient lighting */}
-      <div className="fixed top-0 left-1/4 w-[600px] h-[600px] bg-brand-emerald/5 rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] bg-slate-800/30 rounded-full blur-[120px] pointer-events-none -z-10" />
+    <div className="min-h-screen text-slate-100 flex flex-col md:flex-row relative overflow-x-hidden">
+      {/* Animated Micro Slats background (fixed, behind content) */}
+      <AppBackground />
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-white/5 p-6 shrink-0 justify-between sticky top-0 h-screen z-20">
