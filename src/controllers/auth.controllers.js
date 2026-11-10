@@ -153,7 +153,7 @@ const registerUser = asyncHandler(async (req, res) => {
     to: user.email,
     name: user.name,
     verificationUrl,
-  });
+  }).catch((err) => console.error("Background email error:", err));
 
   const createdUser = await User.findById(user._id).select(safeUserProjection);
   if (!createdUser) {
