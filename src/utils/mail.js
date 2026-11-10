@@ -1,25 +1,22 @@
+import nodemailer from "nodemailer";
 import Mailgen from "mailgen";
-import sgMail from "@sendgrid/mail";
 
-// Configure Mailgen
 const mailGenerator = new Mailgen({
   theme: "default",
   product: {
     name: "Profligate",
-    link: process.env.APP_URL || "http://localhost:5173",
+    link: process.env.CLIENT_URL || "http://localhost:5173",
   },
 });
 
-// Configure SendGrid API Key
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error("SENDGRID_API_KEY is missing");
-}
-
-if (!process.env.SENDGRID_FROM_EMAIL) {
-  throw new Error("SENDGRID_FROM_EMAIL is missing");
-}
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Create the Gmail Transporter
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER, // Your gmail address
+    pass: process.env.EMAIL_PASS, // The 16-letter App Password
+  },
+});
 
 const emailVerificationMailGenContent = (name, verificationUrl) => {
   return {
@@ -66,27 +63,24 @@ const sendEmail = async (options) => {
   if (!to || !subject || !mailgenContent) {
     throw new Error("Missing required email parameters.");
   }
+
   const html = mailGenerator.generate(mailgenContent);
   const text = mailGenerator.generatePlaintext(mailgenContent);
 
   const message = {
+    from: `"Profligate" <${process.env.EMAIL_USER}>`,
     to,
-    from: process.env.SENDGRID_FROM_EMAIL,
     subject,
     text,
     html,
   };
 
   try {
-    const [response] = await sgMail.send(message);
-    return response;
+    const info = await transporter.sendMail(message);
+    console.log("Email sent successfully:", info.messageId);
+    return info;
   } catch (error) {
-    console.error("SendGrid Error:", {
-      message: error.message,
-      response: error.response?.body,
-      statusCode: error.code,
-    });
-
+    console.error("Nodemailer Error:", error);
     throw error;
   }
 };
