@@ -1,8 +1,10 @@
-import { Resend } from "resend";
 import Mailgen from "mailgen";
 
-// Initialize Resend with your API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Brevo transactional email API (HTTPS, port 443 — not blocked by Render).
+// Required env vars:
+//   BREVO_API_KEY    — from Brevo dashboard → SMTP & API → API Keys
+//   MAIL_FROM_EMAIL  — a sender address verified in Brevo → Senders
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const mailGenerator = new Mailgen({
   theme: "default",
@@ -57,21 +59,40 @@ const sendEmail = async (options) => {
   const html = mailGenerator.generate(mailgenContent);
   const text = mailGenerator.generatePlaintext(mailgenContent);
 
-  try {
-    // Resend uses HTTPS (Port 443) which Render CANNOT block
-    const data = await resend.emails.send({
-      from: "Profligate <onboarding@resend.dev>",
-      to,
-      subject,
-      html,
-      text,
-    });
-    console.log("Email sent via Resend:", data);
-    return data;
-  } catch (error) {
-    console.error("Resend Error:", error);
-    throw error;
+  if (!process.env.BREVO_API_KEY || !process.env.MAIL_FROM_EMAIL) {
+    throw new Error(
+      "Email not configured: BREVO_API_KEY and MAIL_FROM_EMAIL must be set.",
+    );
   }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      "api-key": process.env.BREVO_API_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      sender: { name: "Profligate", email: process.env.MAIL_FROM_EMAIL },
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent: text,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  // Unlike Resend's SDK, we fail loudly so callers know the email didn't go out.
+  if (!response.ok) {
+    console.error("Brevo Error:", response.status, data);
+    throw new Error(
+      data.message || `Brevo request failed with status ${response.status}`,
+    );
+  }
+
+  console.log("Email sent via Brevo:", data.messageId);
+  return data;
 };
 
 const sendVerificationEmail = async ({ to, name, verificationUrl }) => {
