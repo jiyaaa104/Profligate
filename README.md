@@ -8,11 +8,10 @@ Students live on a fixed allowance, stipend or pocket money, spent in lots of sm
 
 > The API runs on Render's free tier, so the first request after a quiet period can take about 30 seconds while the server wakes up.
 
-<!--
-Screenshots: add images to docs/screenshots/ and uncomment.
-![Dashboard with Money Runway card](docs/screenshots/dashboard.png)
-![Transactions](docs/screenshots/transactions.png)
--->
+[Dashboard with Money Runway card](docs/screenshots/dashboard.png)
+
+[Transactions Page](docs/screenshots/transactions.png)
+
 
 ## Features
 
