@@ -5,6 +5,7 @@ import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { checkDailyLimit } from "../utils/alertEngine.js";
+import { checkRunwayAlert } from "../utils/runway.js";
 
 // Create a new transaction
 const createTransaction = asyncHandler(async (req, res) => {
@@ -88,6 +89,12 @@ const createTransaction = asyncHandler(async (req, res) => {
       await checkDailyLimit(req.user._id, transaction);
     } catch (error) {
       console.error("Daily limit alert error:", error);
+    }
+
+    try {
+      await checkRunwayAlert(req.user._id);
+    } catch (error) {
+      console.error("Runway alert error:", error);
     }
   }
 

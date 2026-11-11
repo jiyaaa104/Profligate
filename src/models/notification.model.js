@@ -25,7 +25,7 @@ const notificationSchema = new Schema(
 
     type: {
       type: String,
-      enum: ["daily_limit", "budget_alert", "system"],
+      enum: ["daily_limit", "budget_alert", "runway_alert", "system"],
       required: true,
     },
 

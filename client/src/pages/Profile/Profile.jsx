@@ -53,6 +53,7 @@ export default function Profile() {
     currency: "INR",
     timezone: "Asia/Kolkata",
     dailyLimitRupees: "0",
+    allowanceDay: "",
     alertEnabled: true,
     aiInsightsEnabled: true,
   });
@@ -71,6 +72,9 @@ export default function Profile() {
         dailyLimitRupees: user.preferences?.dailyLimitPaise
           ? (user.preferences.dailyLimitPaise / 100).toString()
           : "0",
+        allowanceDay: user.preferences?.allowanceDay
+          ? String(user.preferences.allowanceDay)
+          : "",
         alertEnabled: user.preferences?.alertEnabled ?? true,
         aiInsightsEnabled: user.preferences?.aiInsightsEnabled ?? true,
       });
@@ -134,6 +138,19 @@ export default function Profile() {
       return;
     }
 
+    const trimmedAllowanceDay = formData.allowanceDay.trim();
+    const parsedAllowanceDay =
+      trimmedAllowanceDay === "" ? null : Number(trimmedAllowanceDay);
+    if (
+      parsedAllowanceDay !== null &&
+      (!Number.isInteger(parsedAllowanceDay) ||
+        parsedAllowanceDay < 1 ||
+        parsedAllowanceDay > 31)
+    ) {
+      setErrorMessage("Allowance day must be a whole number from 1 to 31.");
+      return;
+    }
+
     const payload = {
       name: formData.name.trim(),
       currency: formData.currency.trim().toUpperCase(),
@@ -141,6 +158,7 @@ export default function Profile() {
       openingBalancePaise: Math.round(parsedOpeningBalance * 100),
       preferences: {
         dailyLimitPaise: Math.round(parsedDailyLimit * 100),
+        allowanceDay: parsedAllowanceDay,
         alertEnabled: formData.alertEnabled,
         aiInsightsEnabled: formData.aiInsightsEnabled,
       },
@@ -372,6 +390,27 @@ export default function Profile() {
               </div>
               <span className="text-[11px] text-slate-500 mt-1 block">
                 0 means no daily spending limit set.
+              </span>
+            </div>
+
+            {/* Allowance Day */}
+            <div className="max-w-xs">
+              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+                Allowance Day (optional)
+              </label>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                max="31"
+                name="allowanceDay"
+                value={formData.allowanceDay}
+                onChange={handleInputChange}
+                placeholder="1"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-emerald font-mono font-semibold"
+              />
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Day of the month you usually get money. Used to check if your balance will last.
               </span>
             </div>
 

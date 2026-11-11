@@ -2,6 +2,7 @@ import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import AIInsightsCard from "./AIInsightsCard";
+import RunwayCard from "./RunwayCard";
 import {
   Wallet,
   TrendingUp,
@@ -103,6 +104,8 @@ export default function Dashboard() {
           </button>
         </div>
       )}
+
+      <RunwayCard />
 
       {/* Summary Cards Grid (Total Balance, Total Income, Total Expense) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">

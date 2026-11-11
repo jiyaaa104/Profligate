@@ -112,6 +112,17 @@ const userSchema = new Schema(
           message: "Daily limit must be a valid integer in paise.",
         },
       },
+      // Day of the month the student receives money (1-31, null = not set)
+      allowanceDay: {
+        type: Number,
+        default: null,
+        min: [1, "Allowance day must be between 1 and 31"],
+        max: [31, "Allowance day must be between 1 and 31"],
+        validate: {
+          validator: (day) => day === null || Number.isInteger(day),
+          message: "Allowance day must be a whole number.",
+        },
+      },
       alertEnabled: {
         type: Boolean,
         default: true,

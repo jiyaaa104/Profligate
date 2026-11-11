@@ -118,6 +118,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
 
     const allowedPreferenceFields = [
       "dailyLimitPaise",
+      "allowanceDay",
       "alertEnabled",
       "aiInsightsEnabled",
     ];
@@ -145,6 +146,27 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       }
 
       user.preferences.dailyLimitPaise = preferences.dailyLimitPaise;
+
+      hasUpdates = true;
+    }
+
+    // Update allowance day (null clears it)
+    if (Object.prototype.hasOwnProperty.call(preferences, "allowanceDay")) {
+      const { allowanceDay } = preferences;
+
+      if (
+        allowanceDay !== null &&
+        (!Number.isInteger(allowanceDay) ||
+          allowanceDay < 1 ||
+          allowanceDay > 31)
+      ) {
+        throw new ApiError(
+          400,
+          "Allowance day must be a whole number between 1 and 31.",
+        );
+      }
+
+      user.preferences.allowanceDay = allowanceDay;
 
       hasUpdates = true;
     }
