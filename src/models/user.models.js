@@ -123,6 +123,17 @@ const userSchema = new Schema(
           message: "Allowance day must be a whole number.",
         },
       },
+      // Amount the student wants to keep aside each month, in paise (0 = none).
+      // The runway forecast treats it as money that isn't available to spend.
+      monthlySavingsGoalPaise: {
+        type: Number,
+        default: 0,
+        min: [0, "Savings goal cannot be negative"],
+        validate: {
+          validator: Number.isSafeInteger,
+          message: "Savings goal must be a valid integer in paise.",
+        },
+      },
       alertEnabled: {
         type: Boolean,
         default: true,

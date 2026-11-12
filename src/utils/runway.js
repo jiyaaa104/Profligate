@@ -69,6 +69,7 @@ export const calculateRunway = ({
   today,
   allowanceDay = null,
   incomeToday = false,
+  savingsGoalPaise = 0,
 }) => {
   const todayNumber = toDayNumber(today);
 
@@ -101,8 +102,12 @@ export const calculateRunway = ({
   );
   const dailyPacePaise = Math.max(1, Math.round(cappedTotal / windowDays));
 
-  const spendableBalance = Math.max(0, balancePaise);
+  // The savings goal is set aside first; only the rest is spendable.
+  const availablePaise = Math.max(0, balancePaise);
+  const reservedPaise = Math.min(savingsGoalPaise, availablePaise);
+  const spendableBalance = availablePaise - reservedPaise;
   const daysLeft = Math.floor(spendableBalance / dailyPacePaise);
+  const daysLeftWithoutSavings = Math.floor(availablePaise / dailyPacePaise);
 
   const runway = {
     status: "ready",
@@ -112,6 +117,15 @@ export const calculateRunway = ({
     windowDays,
     daysLeft,
     runOutDate: dayNumberToDateKey(todayNumber + daysLeft),
+    savingsGoalPaise,
+    reservedPaise,
+    spendablePaise: spendableBalance,
+    goalFits: savingsGoalPaise <= availablePaise,
+    daysLeftWithoutSavings,
+    runOutDateWithoutSavings:
+      savingsGoalPaise > 0
+        ? dayNumberToDateKey(todayNumber + daysLeftWithoutSavings)
+        : null,
     nextAllowanceDate: null,
     daysUntilAllowance: null,
     willRunShort: false,
@@ -140,7 +154,9 @@ export const calculateRunway = ({
 // no longer exists.
 export const getRunwayForUser = async (userId) => {
   const user = await User.findById(userId)
-    .select("openingBalancePaise timezone preferences.allowanceDay")
+    .select(
+      "openingBalancePaise timezone preferences.allowanceDay preferences.monthlySavingsGoalPaise",
+    )
     .lean();
 
   if (!user) return null;
@@ -235,6 +251,7 @@ export const getRunwayForUser = async (userId) => {
     firstExpenseDate,
     today,
     allowanceDay: user.preferences?.allowanceDay ?? null,
+    savingsGoalPaise: user.preferences?.monthlySavingsGoalPaise ?? 0,
     incomeToday: Boolean(incomeToday),
   });
 };
@@ -251,10 +268,19 @@ const formatRupees = (paise) =>
 
 export const buildRunwayMessage = (runway) => {
   const dayLabel = runway.daysShort === 1 ? "day" : "days";
-  const opening =
-    runway.balancePaise > 0
-      ? `At this pace your money lasts until ${formatDay(runway.runOutDate)}, ${runway.daysShort} ${dayLabel} short of your next allowance.`
-      : `Your recorded balance has run out, ${runway.daysShort} ${dayLabel} before your next allowance.`;
+  const goal = formatRupees(runway.savingsGoalPaise);
+
+  if (runway.balancePaise <= 0) {
+    return `Your recorded balance has run out, ${runway.daysShort} ${dayLabel} before your next allowance.`;
+  }
+
+  if (runway.savingsGoalPaise > 0 && runway.spendablePaise <= 0) {
+    return `Your balance of ${formatRupees(runway.balancePaise)} doesn't cover your ${goal} savings goal, so anything you spend before your next allowance comes out of your savings.`;
+  }
+
+  const savingNote =
+    runway.savingsGoalPaise > 0 ? ` while keeping ${goal} aside for savings` : "";
+  const opening = `At this pace your money lasts until ${formatDay(runway.runOutDate)}${savingNote}, ${runway.daysShort} ${dayLabel} short of your next allowance.`;
 
   return runway.safeDailyPaise >= 100
     ? `${opening} Keep spending under ${formatRupees(runway.safeDailyPaise)} a day to make it.`

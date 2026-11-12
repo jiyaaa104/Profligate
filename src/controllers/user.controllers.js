@@ -119,6 +119,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     const allowedPreferenceFields = [
       "dailyLimitPaise",
       "allowanceDay",
+      "monthlySavingsGoalPaise",
       "alertEnabled",
       "aiInsightsEnabled",
     ];
@@ -167,6 +168,26 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
       }
 
       user.preferences.allowanceDay = allowanceDay;
+
+      hasUpdates = true;
+    }
+
+    // Update monthly savings goal
+    if (
+      Object.prototype.hasOwnProperty.call(
+        preferences,
+        "monthlySavingsGoalPaise",
+      )
+    ) {
+      if (!isValidPaise(preferences.monthlySavingsGoalPaise)) {
+        throw new ApiError(
+          400,
+          "Savings goal must be a nonnegative safe integer in paise.",
+        );
+      }
+
+      user.preferences.monthlySavingsGoalPaise =
+        preferences.monthlySavingsGoalPaise;
 
       hasUpdates = true;
     }

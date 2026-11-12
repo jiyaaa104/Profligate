@@ -21,23 +21,43 @@ const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
 const getCopy = (runway) => {
   const isOut = runway.balancePaise <= 0;
   const hasAllowance = runway.nextAllowanceDate !== null;
+  const hasGoal = runway.savingsGoalPaise > 0;
+  const goal = formatRupees(runway.savingsGoalPaise);
+  // Nothing left to spend once the savings goal is set aside.
+  const goalUsesEverything = hasGoal && !isOut && runway.spendablePaise <= 0;
 
   let headline;
   if (isOut) {
     headline = "You've run out of recorded money.";
+  } else if (goalUsesEverything) {
+    headline = `You can save ${formatRupees(runway.reservedPaise)} of your ${goal} goal if you spend nothing else.`;
   } else if (runway.daysLeft > 365) {
-    headline = "Your money lasts over a year at this pace.";
+    headline = hasGoal
+      ? `Your money lasts over a year at this pace, even after saving ${goal}.`
+      : "Your money lasts over a year at this pace.";
   } else {
-    headline = `Your money lasts until ${formatDay(runway.runOutDate)}.`;
+    headline = hasGoal
+      ? `Your money lasts until ${formatDay(runway.runOutDate)} while keeping ${goal} aside for savings.`
+      : `Your money lasts until ${formatDay(runway.runOutDate)}.`;
   }
 
-  if (!hasAllowance) return { headline, detail: null, action: null };
+  // What the savings goal costs, in days.
+  let note = null;
+  if (hasGoal && runway.spendablePaise > 0 && runway.daysLeft <= 365) {
+    note =
+      runway.daysLeftWithoutSavings > 365
+        ? "Without the savings goal, it would last over a year."
+        : `Without the savings goal, it would last until ${formatDay(runway.runOutDateWithoutSavings)}.`;
+  }
+
+  if (!hasAllowance) return { headline, detail: null, action: null, note };
 
   if (runway.daysUntilAllowance === 0) {
     return {
       headline,
       detail: "Your allowance is due today.",
       action: "Add it as income when it arrives.",
+      note,
     };
   }
 
@@ -49,12 +69,13 @@ const getCopy = (runway) => {
   if (runway.willRunShort) {
     return {
       headline,
-      detail: isOut
+      detail: isOut || goalUsesEverything
         ? `Your next allowance is ${plural(runway.daysUntilAllowance, "day")} away.`
         : `That's ${plural(runway.daysShort, "day")} short of your next allowance.`,
       action: canAfford
         ? `Keep spending under ${canAfford} a day to make it.`
         : null,
+      note,
     };
   }
 
@@ -62,6 +83,7 @@ const getCopy = (runway) => {
     headline,
     detail: `That covers you until your next allowance on ${formatDay(runway.nextAllowanceDate)}.`,
     action: canAfford ? `You can spend up to ${canAfford} a day.` : null,
+    note,
   };
 };
 
@@ -129,7 +151,7 @@ export default function RunwayCard() {
     );
   }
 
-  const { headline, detail, action } = getCopy(runway);
+  const { headline, detail, action, note } = getCopy(runway);
 
   return shell(
     runway.willRunShort ? "border-amber-500/40" : "border-brand-emerald/25",
@@ -147,6 +169,7 @@ export default function RunwayCard() {
         </p>
       )}
       {action && <p className="text-sm text-white font-semibold mt-1">{action}</p>}
+      {note && <p className="text-sm text-slate-400 italic mt-1">{note}</p>}
       <p className="text-xs text-slate-400 mt-3">
         Based on your typical spending of about{" "}
         {formatRupees(runway.dailyPacePaise)} a day over the last{" "}

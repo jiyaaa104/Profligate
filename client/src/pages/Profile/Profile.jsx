@@ -54,6 +54,7 @@ export default function Profile() {
     timezone: "Asia/Kolkata",
     dailyLimitRupees: "0",
     allowanceDay: "",
+    savingsGoalRupees: "0",
     alertEnabled: true,
     aiInsightsEnabled: true,
   });
@@ -75,6 +76,9 @@ export default function Profile() {
         allowanceDay: user.preferences?.allowanceDay
           ? String(user.preferences.allowanceDay)
           : "",
+        savingsGoalRupees: user.preferences?.monthlySavingsGoalPaise
+          ? (user.preferences.monthlySavingsGoalPaise / 100).toString()
+          : "0",
         alertEnabled: user.preferences?.alertEnabled ?? true,
         aiInsightsEnabled: user.preferences?.aiInsightsEnabled ?? true,
       });
@@ -151,6 +155,12 @@ export default function Profile() {
       return;
     }
 
+    const parsedSavingsGoal = parseFloat(formData.savingsGoalRupees || "0");
+    if (isNaN(parsedSavingsGoal) || parsedSavingsGoal < 0) {
+      setErrorMessage("Monthly savings goal must be a valid non-negative number.");
+      return;
+    }
+
     const payload = {
       name: formData.name.trim(),
       currency: formData.currency.trim().toUpperCase(),
@@ -159,6 +169,7 @@ export default function Profile() {
       preferences: {
         dailyLimitPaise: Math.round(parsedDailyLimit * 100),
         allowanceDay: parsedAllowanceDay,
+        monthlySavingsGoalPaise: Math.round(parsedSavingsGoal * 100),
         alertEnabled: formData.alertEnabled,
         aiInsightsEnabled: formData.aiInsightsEnabled,
       },
@@ -411,6 +422,31 @@ export default function Profile() {
               />
               <span className="text-[11px] text-slate-500 mt-1 block">
                 Day of the month you usually get money. Used to check if your balance will last.
+              </span>
+            </div>
+
+            {/* Monthly Savings Goal */}
+            <div className="max-w-xs">
+              <label className="block text-xs uppercase tracking-wider text-slate-400 font-semibold mb-1.5">
+                Monthly Savings Goal (₹)
+              </label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  name="savingsGoalRupees"
+                  value={formData.savingsGoalRupees}
+                  onChange={handleInputChange}
+                  placeholder="2000"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-emerald font-mono font-semibold"
+                />
+              </div>
+              <span className="text-[11px] text-slate-500 mt-1 block">
+                Kept aside when forecasting how long your money lasts. 0 means no goal.
               </span>
             </div>
 
