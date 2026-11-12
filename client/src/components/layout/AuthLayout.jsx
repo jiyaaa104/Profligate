@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
 import AppBackground from "../backgrounds/AppBackground";
+import ServerWakeBanner from "../ServerWakeBanner";
+import { waitForServer } from "../../services/serverWake";
 
 /**
  * AuthLayout — Reusable glassmorphic auth container
@@ -9,10 +11,17 @@ import AppBackground from "../backgrounds/AppBackground";
  * with a dark navy backdrop, subtle glow, and emerald branding.
  */
 export default function AuthLayout({ children, title, subtitle }) {
+  // Wake the API as soon as an auth page opens, so it is usually ready by
+  // the time the user has typed their details.
+  useEffect(() => {
+    waitForServer();
+  }, []);
+
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 overflow-hidden">
       {/* Animated Micro Slats background (fixed, behind content) */}
       <AppBackground />
+      <ServerWakeBanner />
 
       {/* Glass card panel */}
       <div className="relative z-10 w-full max-w-[420px] glass-panel-glow rounded-2xl p-8 sm:p-10 text-center">

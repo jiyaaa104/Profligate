@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { ApiError } from "./utils/apiError.js";
+import connectDB from "./db/index.js";
 
 const app = express();
 
@@ -20,6 +21,19 @@ app.use(
     allowedHeaders: ["Authorization", "Content-Type"],
   }),
 );
+
+// Make sure MongoDB is connected before any route runs. Instant once
+// connected; on Vercel this is what opens the connection (see db/index.js).
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch {
+    next(
+      new ApiError(503, "Database is temporarily unavailable. Please try again."),
+    );
+  }
+});
 
 // Route imports
 import healthCheckRouter from "./routes/healthcheck.route.js";

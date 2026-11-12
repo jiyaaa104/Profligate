@@ -175,7 +175,7 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 const verifyEmail = asyncHandler(async (req, res) => {
-  const token = req.query.token || req.body.token;
+  const token = req.query.token || req.body?.token;
 
   if (!token) {
     throw new ApiError(400, "Verification token is required.");
@@ -279,7 +279,7 @@ const login = asyncHandler(async (req, res) => {
 
 const logoutUser = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body.refreshToken;
+    req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (incomingRefreshToken) {
     await RefreshToken.deleteOne({ token: incomingRefreshToken });
@@ -367,7 +367,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
 const refreshAccessToken = asyncHandler(async (req, res) => {
   const incomingRefreshToken =
-    req.cookies?.refreshToken || req.body.refreshToken;
+    req.cookies?.refreshToken || req.body?.refreshToken;
 
   if (!incomingRefreshToken) {
     throw new ApiError(401, "Refresh token is required.");

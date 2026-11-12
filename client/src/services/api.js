@@ -1,4 +1,5 @@
 import axios from "axios";
+import { isServerUnreachable, waitForServer } from "./serverWake";
 
 /**
  * Shared Axios instance for Profligate API
@@ -51,11 +52,53 @@ const endSession = () => {
   }
 };
 
-// Response interceptor: refresh expired access tokens once, and format errors
+// Requests that are safe to send twice if the first one got lost while the
+// server was waking up. Other writes (e.g. adding a transaction) are not
+// retried automatically, because the first attempt may still have gone through.
+const SAFE_TO_RESEND_POSTS = ["/auth/login", "/auth/forgot-password"];
+
+const canResend = (config) => {
+  const method = (config.method || "get").toLowerCase();
+  return (
+    method === "get" ||
+    method === "head" ||
+    SAFE_TO_RESEND_POSTS.some((path) => config.url?.startsWith(path))
+  );
+};
+
+// Replace the gateway's HTML error page with a message the UI can show.
+const describeUnreachable = (error, serverIsAwake) => {
+  error.response = {
+    ...(error.response || {}),
+    status: error.response?.status ?? 503,
+    data: {
+      message: serverIsAwake
+        ? "The server was starting up and missed that request. It's ready now, so please try again."
+        : "Can't reach the server right now. Please try again in a minute.",
+    },
+  };
+};
+
+// Response interceptor: wait out a sleeping server, refresh expired access
+// tokens once, and format errors
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config;
+
+    if (original && isServerUnreachable(error)) {
+      if (!original._wakeRetry) {
+        original._wakeRetry = true;
+        const serverIsAwake = await waitForServer();
+        if (serverIsAwake && canResend(original)) {
+          return api(original);
+        }
+        describeUnreachable(error, serverIsAwake);
+      } else {
+        describeUnreachable(error, false);
+      }
+    }
+
     const isAuthPath = NO_REFRESH_PATHS.some((p) => original?.url?.startsWith(p));
 
     if (error.response?.status === 401 && original && !original._retry && !isAuthPath) {

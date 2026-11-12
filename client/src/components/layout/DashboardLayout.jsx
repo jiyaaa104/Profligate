@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import AppBackground from "../backgrounds/AppBackground";
+import ServerWakeBanner from "../ServerWakeBanner";
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -51,6 +52,7 @@ export default function DashboardLayout() {
     <div className="min-h-screen text-slate-100 flex flex-col md:flex-row relative overflow-x-hidden">
       {/* Animated Micro Slats background (fixed, behind content) */}
       <AppBackground />
+      <ServerWakeBanner />
 
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 glass-panel border-r border-white/5 p-6 shrink-0 justify-between sticky top-0 h-screen z-20">
