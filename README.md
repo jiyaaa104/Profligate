@@ -6,8 +6,6 @@ Students live on a fixed allowance, stipend or pocket money, spent in lots of sm
 
 **Live demo:** [profligate.vercel.app](https://profligate.vercel.app)
 
-> The API runs on Render's free tier, so the first request after a quiet period can take about 30 seconds while the server wakes up.
-
 [Dashboard with Money Runway card](docs/screenshots/dashboard.png)
 
 [Transactions Page](docs/screenshots/transactions.png)
@@ -44,13 +42,13 @@ It needs at least 7 days of history and 3 days with spending before it makes a f
 | Database | MongoDB Atlas |
 | AI | Google Gemini (`@google/genai`) with structured JSON output |
 | Email | Brevo transactional email, Mailgen templates |
-| Hosting | Vercel (frontend), Render (API) |
+| Hosting | Vercel (frontend and API as separate projects) |
 
 ## Engineering decisions
 
 - **Money is stored as integer paise** (₹1 = 100 paise), never as floating-point rupees, so totals never drift by fractions of a paisa.
 - **Timezone-aware days** — daily limits and the runway forecast use each user's own timezone (default `Asia/Kolkata`) to decide where a day starts and ends.
-- **Same-origin API** — Vercel rewrites `/api/*` to the Render backend, so the browser only talks to one origin. Auth cookies stay first-party and work in privacy-focused browsers like Brave and Safari that block third-party cookies.
+- **Same-origin API** — the frontend's Vercel project rewrites `/api/*` to the backend project, so the browser only talks to one origin. Auth cookies stay first-party and work in privacy-focused browsers like Brave and Safari that block third-party cookies.
 - **Secure sessions** — HttpOnly access and refresh token cookies. Refresh tokens are stored server-side, single-use (rotated on every refresh) and expire automatically via a MongoDB TTL index. The client refreshes expired sessions transparently and shares one refresh request across parallel calls.
 - **Brute-force protection** — 5 failed logins lock the account for 15 minutes; email verification and password-reset tokens are stored as SHA-256 hashes.
 - **Reliable AI output** — Gemini responses are constrained to a JSON schema and retried on temporary failures.

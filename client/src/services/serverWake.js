@@ -1,6 +1,6 @@
 /**
- * Handles the API "waking up". Render's free tier sleeps after ~15 minutes
- * idle, and the first request afterwards can take up to a minute. While that
+ * Handles the API being slow or unreachable for a moment, e.g. a cold start
+ * after a quiet period or a deploy in progress. While that
  * happens the app shows a "starting up" banner instead of a confusing error.
  */
 

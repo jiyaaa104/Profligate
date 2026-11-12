@@ -1,6 +1,6 @@
 import Mailgen from "mailgen";
 
-// Brevo transactional email API (HTTPS, port 443 — not blocked by Render).
+// Brevo transactional email API (HTTPS on port 443, so it works on hosts that block SMTP ports).
 // Required env vars:
 //   BREVO_API_KEY    — from Brevo dashboard → SMTP & API → API Keys
 //   MAIL_FROM_EMAIL  — a sender address verified in Brevo → Senders

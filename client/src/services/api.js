@@ -5,7 +5,7 @@ import { isServerUnreachable, waitForServer } from "./serverWake";
  * Shared Axios instance for Profligate API
  * - baseURL: "/api/v1" is same-origin. In dev, Vite proxies /api to
  *   localhost:8000 (vite.config.js); in production, Vercel rewrites /api to
- *   the Render backend (vercel.json). Because the browser only ever talks to
+ *   the backend's Vercel project (vercel.json). Because the browser only ever talks to
  *   one origin, the HttpOnly auth cookies are first-party and are sent on
  *   every request (cross-site cookies get blocked by Brave/Safari/sameSite).
  * - withCredentials: true ensures HttpOnly cookies (accessToken, refreshToken)
