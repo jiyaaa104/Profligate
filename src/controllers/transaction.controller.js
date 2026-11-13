@@ -263,10 +263,124 @@ const deleteTransaction = asyncHandler(async (req, res) => {
   );
 });
 
+// Update a transaction (any subset of its fields)
+// PATCH /api/v1/transactions/:id
+const PAYMENT_METHODS = ["cash", "card", "upi", "netbanking", "other"];
+
+const updateTransaction = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  // 1. Validate MongoDB ObjectId.
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw new ApiError(400, "Invalid transaction ID.");
+  }
+
+  const body = req.body ?? {};
+  const has = (field) => Object.prototype.hasOwnProperty.call(body, field);
+  const updates = {};
+
+  // 2. Validate each field that was sent.
+  if (has("amountPaise")) {
+    if (!Number.isSafeInteger(body.amountPaise) || body.amountPaise <= 0) {
+      throw new ApiError(
+        400,
+        "Transaction amount must be a positive integer in paise.",
+      );
+    }
+    updates.amountPaise = body.amountPaise;
+  }
+
+  if (has("type")) {
+    if (!["income", "expense"].includes(body.type)) {
+      throw new ApiError(400, "Invalid transaction type.");
+    }
+    updates.type = body.type;
+  }
+
+  if (has("category")) {
+    if (typeof body.category !== "string" || !body.category.trim()) {
+      throw new ApiError(400, "Category must be a valid string.");
+    }
+    updates.category = body.category.trim();
+  }
+
+  if (has("description")) {
+    if (body.description !== null && typeof body.description !== "string") {
+      throw new ApiError(400, "Description must be a string.");
+    }
+    const description = (body.description ?? "").trim();
+    if (description.length > 200) {
+      throw new ApiError(400, "Description cannot exceed 200 characters.");
+    }
+    updates.description = description;
+  }
+
+  if (has("paymentMethod")) {
+    if (!PAYMENT_METHODS.includes(body.paymentMethod)) {
+      throw new ApiError(400, "Invalid payment method.");
+    }
+    updates.paymentMethod = body.paymentMethod;
+  }
+
+  if (has("transactionDate")) {
+    const date = new Date(body.transactionDate);
+    if (Number.isNaN(date.getTime())) {
+      throw new ApiError(400, "Invalid transaction date.");
+    }
+    updates.transactionDate = date;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    throw new ApiError(400, "Provide at least one field to update.");
+  }
+
+  // 3. Only the owner can edit it.
+  const existing = await Transaction.findOne({ _id: id, userId: req.user._id });
+
+  if (!existing) {
+    throw new ApiError(404, "Transaction not found or unauthorized.");
+  }
+
+  // A bill payment has to stay an expense, or the bill would look paid
+  // without any money having gone out.
+  if (existing.fixedCostId && updates.type === "income") {
+    throw new ApiError(
+      400,
+      "Bill payments can't be changed to income. Delete it instead to mark the bill unpaid.",
+    );
+  }
+
+  const before = existing.toObject();
+  Object.assign(existing, updates);
+  await existing.save();
+
+  // 4. Recheck alerts for the old and the new day. Alert failures must not
+  // fail the update.
+  try {
+    if (before.type === "expense") await checkDailyLimit(req.user._id, before);
+    if (existing.type === "expense") await checkDailyLimit(req.user._id, existing);
+  } catch (error) {
+    console.error("Daily limit alert error:", error);
+  }
+
+  try {
+    await checkRunwayAlert(req.user._id);
+  } catch (error) {
+    console.error("Runway alert error:", error);
+  }
+
+  // 5. Return the updated transaction.
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, existing, "Transaction updated successfully."),
+    );
+});
 
 export {
   createTransaction,
   getTransactions,
+  updateTransaction,
   deleteTransaction,
 };
 

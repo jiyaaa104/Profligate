@@ -3,6 +3,7 @@ import { Router } from "express";
 import {
   createTransaction,
   getTransactions,
+  updateTransaction,
   deleteTransaction,
 } from "../controllers/transaction.controller.js";
 
@@ -19,7 +20,7 @@ router.route("/").post(createTransaction);
 // Get all transactions (supports pagination and filters)
 router.route("/").get(getTransactions);
 
-// Delete a transaction by ID
-router.route("/:id").delete(deleteTransaction);
+// Update or delete a transaction by ID
+router.route("/:id").patch(updateTransaction).delete(deleteTransaction);
 
 export default router;

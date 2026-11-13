@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
   Plus,
+  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -111,6 +112,23 @@ const convertRupeesToPaise = (amount) => {
   return amountPaise;
 };
 
+// Integer paise -> "1234.5" style string for the amount field.
+const paiseToRupeesString = (paise) => {
+  const rupees = Math.floor(paise / 100);
+  const rest = paise % 100;
+  if (rest === 0) return String(rupees);
+  return `${rupees}.${String(rest).padStart(2, "0")}`.replace(/0$/, "");
+};
+
+// ISO timestamp -> the user's local YYYY-MM-DD.
+const toLocalDateString = (iso) => {
+  const date = new Date(iso);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 // --------------------------------------------------
 // Initial Form State
 // --------------------------------------------------
@@ -139,6 +157,9 @@ export default function Transactions() {
   const [typeFilter, setTypeFilter] = useState("");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // The transaction being edited, or null when adding a new one.
+  const [editingTx, setEditingTx] = useState(null);
 
   const [formError, setFormError] = useState("");
 
@@ -195,7 +216,7 @@ export default function Transactions() {
     if (!isModalOpen) return;
 
     const handleEscape = (event) => {
-      if (event.key === "Escape" && !createMutation.isPending) {
+      if (event.key === "Escape" && !isSaving) {
         setIsModalOpen(false);
       }
     };
@@ -231,6 +252,16 @@ export default function Transactions() {
         queryClient.invalidateQueries({
           queryKey: ["notifications"],
         }),
+
+        // Balance and Money Runway on the dashboard
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-summary"],
+        }),
+
+        // Deleting a bill payment marks that bill unpaid again
+        queryClient.invalidateQueries({
+          queryKey: ["fixed-costs"],
+        }),
       ]);
 
       // Newly created transactions are generally
@@ -249,6 +280,41 @@ export default function Transactions() {
       );
     },
   });
+
+  // -----------------------------------------------
+  // Mutation: Update Transaction
+  // -----------------------------------------------
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, payload }) => {
+      const response = await api.patch(`/transactions/${id}`, payload);
+
+      return response.data;
+    },
+
+    onSuccess: async () => {
+      // An edit can change the balance, runway, budgets and bills.
+      await Promise.all(
+        ["transactions", "budgets", "notifications", "dashboard-summary", "fixed-costs"].map(
+          (key) => queryClient.invalidateQueries({ queryKey: [key] }),
+        ),
+      );
+
+      setIsModalOpen(false);
+      setEditingTx(null);
+      setFormData(getInitialFormState());
+      setFormError("");
+    },
+
+    onError: (err) => {
+      setFormError(
+        err.response?.data?.message ||
+          "Failed to update transaction. Please check your details.",
+      );
+    },
+  });
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   // -----------------------------------------------
   // Mutation: Delete Transaction
@@ -273,6 +339,16 @@ export default function Transactions() {
 
         queryClient.invalidateQueries({
           queryKey: ["notifications"],
+        }),
+
+        // Balance and Money Runway on the dashboard
+        queryClient.invalidateQueries({
+          queryKey: ["dashboard-summary"],
+        }),
+
+        // Deleting a bill payment marks that bill unpaid again
+        queryClient.invalidateQueries({
+          queryKey: ["fixed-costs"],
         }),
       ]);
     },
@@ -313,15 +389,31 @@ export default function Transactions() {
   };
 
   const openModal = () => {
+    setEditingTx(null);
     setFormData(getInitialFormState());
     setFormError("");
     setIsModalOpen(true);
   };
 
+  const openEditModal = (tx) => {
+    setEditingTx(tx);
+    setFormData({
+      amount: paiseToRupeesString(tx.amountPaise),
+      type: tx.type,
+      category: tx.category,
+      description: tx.description || "",
+      paymentMethod: tx.paymentMethod || "upi",
+      transactionDate: toLocalDateString(tx.transactionDate),
+    });
+    setFormError("");
+    setIsModalOpen(true);
+  };
+
   const closeModal = () => {
-    if (createMutation.isPending) return;
+    if (isSaving) return;
 
     setIsModalOpen(false);
+    setEditingTx(null);
     setFormError("");
   };
 
@@ -351,6 +443,24 @@ export default function Transactions() {
 
     if (!formData.category.trim()) {
       setFormError("Please select a transaction category.");
+      return;
+    }
+
+    if (editingTx) {
+      const payload = {
+        amountPaise,
+        type: formData.type,
+        category: formData.category.trim(),
+        description: formData.description.trim(),
+        paymentMethod: formData.paymentMethod,
+      };
+
+      // Keep the original time of day unless the date itself changed.
+      if (formData.transactionDate !== toLocalDateString(editingTx.transactionDate)) {
+        payload.transactionDate = transactionDate.toISOString();
+      }
+
+      updateMutation.mutate({ id: editingTx._id, payload });
       return;
     }
 
@@ -396,8 +506,16 @@ export default function Transactions() {
   // Derived State
   // -----------------------------------------------
 
-  const activeCategories =
+  const baseCategories =
     formData.type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+
+  // Keep an older or custom category selectable when editing.
+  const activeCategories =
+    formData.category && !baseCategories.includes(formData.category)
+      ? [formData.category, ...baseCategories]
+      : baseCategories;
+
+  const isBillPayment = Boolean(editingTx?.fixedCostId);
 
   // -----------------------------------------------
   // Render
@@ -640,9 +758,19 @@ export default function Transactions() {
                         </span>
                       </td>
 
-                      {/* Delete Action */}
+                      {/* Edit & Delete Actions */}
 
                       <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => openEditModal(tx)}
+                          disabled={isDeleting}
+                          title="Edit transaction"
+                          aria-label={`Edit transaction ${tx.description || tx.category}`}
+                          className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+
                         <button
                           onClick={() =>
                             handleDelete(tx._id, tx.description || tx.category)
@@ -725,13 +853,13 @@ export default function Transactions() {
               >
                 <Receipt className="w-5 h-5 text-brand-emerald" />
 
-                <span>Add New Transaction</span>
+                <span>{editingTx ? "Edit Transaction" : "Add New Transaction"}</span>
               </h2>
 
               <button
                 type="button"
                 onClick={closeModal}
-                disabled={createMutation.isPending}
+                disabled={isSaving}
                 aria-label="Close modal"
                 className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
               >
@@ -779,6 +907,8 @@ export default function Transactions() {
                   <button
                     type="button"
                     onClick={() => handleTypeChange("income")}
+                    disabled={isBillPayment}
+                    title={isBillPayment ? "Bill payments stay expenses" : undefined}
                     aria-pressed={formData.type === "income"}
                     className={`py-2.5 rounded-xl font-semibold text-sm transition-all border ${
                       formData.type === "income"
@@ -789,6 +919,13 @@ export default function Transactions() {
                     Income
                   </button>
                 </div>
+
+                {isBillPayment && (
+                  <p className="text-[11px] text-slate-500 mt-1.5">
+                    This is a bill payment, so it stays an expense. Delete it to
+                    mark the bill unpaid.
+                  </p>
+                )}
               </div>
 
               {/* Amount */}
@@ -816,7 +953,7 @@ export default function Transactions() {
                     onChange={handleInputChange}
                     placeholder="250.00"
                     required
-                    disabled={createMutation.isPending}
+                    disabled={isSaving}
                     className="w-full bg-white/5 border border-white/10 rounded-lg pl-8 pr-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-emerald focus:ring-1 focus:ring-brand-emerald font-mono font-semibold"
                   />
                 </div>
@@ -841,7 +978,7 @@ export default function Transactions() {
                     value={formData.category}
                     onChange={handleInputChange}
                     required
-                    disabled={createMutation.isPending}
+                    disabled={isSaving}
                     className="w-full bg-navy-850 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-brand-emerald"
                   >
                     {activeCategories.map((cat) => (
@@ -868,7 +1005,7 @@ export default function Transactions() {
                     value={formData.paymentMethod}
                     onChange={handleInputChange}
                     required
-                    disabled={createMutation.isPending}
+                    disabled={isSaving}
                     className="w-full bg-navy-850 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-brand-emerald"
                   >
                     {PAYMENT_METHODS.map((pm) => (
@@ -898,7 +1035,7 @@ export default function Transactions() {
                   onChange={handleInputChange}
                   required
                   max={getLocalDateString()}
-                  disabled={createMutation.isPending}
+                  disabled={isSaving}
                   className="w-full bg-navy-850 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-brand-emerald"
                 />
               </div>
@@ -921,7 +1058,7 @@ export default function Transactions() {
                   onChange={handleInputChange}
                   placeholder="e.g. Grocery run, Books, Campus canteen"
                   maxLength={200}
-                  disabled={createMutation.isPending}
+                  disabled={isSaving}
                   className="w-full bg-white/5 border border-white/10 rounded-lg px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-emerald"
                 />
               </div>
@@ -932,7 +1069,7 @@ export default function Transactions() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  disabled={createMutation.isPending}
+                  disabled={isSaving}
                   className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50"
                 >
                   Cancel
@@ -940,16 +1077,16 @@ export default function Transactions() {
 
                 <button
                   type="submit"
-                  disabled={createMutation.isPending}
+                  disabled={isSaving}
                   className="bg-brand-emerald hover:bg-brand-emerald-hover text-navy-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
                 >
-                  {createMutation.isPending ? (
+                  {isSaving ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
-                    <span>Add Transaction</span>
+                    <span>{editingTx ? "Save Changes" : "Add Transaction"}</span>
                   )}
                 </button>
               </div>
