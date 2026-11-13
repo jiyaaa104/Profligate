@@ -1,8 +1,11 @@
-import React from "react";
+import React, { lazy, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, Link } from "react-router-dom";
 import AIInsightsCard from "./AIInsightsCard";
 import RunwayCard from "./RunwayCard";
+// Charts (Recharts) load in their own file so the login page and the rest
+// of the app don't download them.
+const SpendingCharts = lazy(() => import("./SpendingCharts"));
 import {
   Wallet,
   TrendingUp,
@@ -187,6 +190,10 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      <Suspense fallback={<div className="h-80 glass-panel rounded-2xl animate-pulse" />}>
+        <SpendingCharts />
+      </Suspense>
+
       <AIInsightsCard />
       {/* Recent Transactions Section */}
       <div className="glass-panel rounded-2xl border-white/5 overflow-hidden">

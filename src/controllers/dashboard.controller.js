@@ -4,6 +4,7 @@ import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { getRunwayForUser } from "../utils/runway.js";
+import { getChartDataForUser } from "../utils/charts.js";
 
 const getDashboardSummary = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -100,4 +101,17 @@ const getDashboardRunway = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, runway, "Runway calculated successfully."));
 });
 
-export { getDashboardSummary, getDashboardRunway };
+// Daily spending (30 days), this month's categories, income vs expenses (6 months)
+const getDashboardCharts = asyncHandler(async (req, res) => {
+  const charts = await getChartDataForUser(req.user._id);
+
+  if (!charts) {
+    throw new ApiError(404, "User not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, charts, "Chart data fetched successfully."));
+});
+
+export { getDashboardSummary, getDashboardRunway, getDashboardCharts };
