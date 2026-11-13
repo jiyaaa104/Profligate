@@ -17,6 +17,7 @@ import {
 import api from "../../services/api";
 import { formatINR } from "../../utils/formatters";
 import BillsSection from "./BillsSection";
+import { summarizeBudgets } from "../../utils/budgetSummary";
 
 const BUDGET_CATEGORIES = [
   "Overall",
@@ -65,16 +66,8 @@ export default function Budgets() {
   });
 
   const budgets = data?.budgets || [];
-  const totalBudgetedPaise = data?.totalBudgetedPaise || 0;
-  const totalSpentPaise = data?.totalSpentPaise || 0;
-
-  const overallUtilisation =
-    totalBudgetedPaise > 0
-      ? Number(((totalSpentPaise / totalBudgetedPaise) * 100).toFixed(1))
-      : 0;
-
-  const overallRemainingPaise = Math.max(0, totalBudgetedPaise - totalSpentPaise);
-  const isOverallExceeded = totalSpentPaise > totalBudgetedPaise;
+  const summary = summarizeBudgets(data);
+  const isOverallExceeded = summary.exceededByPaise > 0;
 
   // 2. Mutation: Create Budget
   const createMutation = useMutation({
@@ -230,70 +223,100 @@ export default function Budgets() {
 
       {/* Top Master Summary Card */}
       <div className="glass-panel-glow rounded-2xl p-6 sm:p-8 relative overflow-hidden border border-white/10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+        {isLoading ? (
+          <div className="h-16 w-64 max-w-full bg-white/5 animate-pulse rounded-lg" />
+        ) : summary.mode === "none" ? (
           <div className="space-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
               Monthly Budget Progress ({selectedMonth})
             </span>
-            <div className="flex items-baseline gap-3">
-              <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-                {formatINR(totalSpentPaise)}
-              </h2>
-              <span className="text-sm sm:text-base text-slate-400 font-medium">
-                spent of {formatINR(totalBudgetedPaise)} budgeted
-              </span>
-            </div>
+            <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
+              No monthly budget set.
+            </h2>
+            <p className="text-sm text-slate-300">
+              {formatINR(summary.totalSpentPaise)} spent this month.
+            </p>
+            <p className="text-sm text-slate-400">
+              Set a budget to start tracking how much of it you use.
+            </p>
           </div>
-
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="text-right">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                Utilisation
-              </p>
-              <p
-                className={`text-2xl font-extrabold font-mono ${isOverallExceeded
-                    ? "text-rose-400"
-                    : overallUtilisation >= 75
-                      ? "text-amber-400"
-                      : "text-brand-emerald-light"
-                  }`}
-              >
-                {overallUtilisation}%
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Master Progress Bar */}
-        <div className="space-y-2">
-          <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${getProgressColor(
-                overallUtilisation,
-                isOverallExceeded
-              )}`}
-              style={{
-                width: `${Math.min(Math.max(overallUtilisation, 0), 100)}%`,
-              }}
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-            <span>0%</span>
-            <span>
-              {isOverallExceeded ? (
-                <span className="text-rose-400 font-semibold">
-                  Overall Budget Exceeded by {formatINR(totalSpentPaise - totalBudgetedPaise)}
+        ) : (
+          <>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                  Monthly Budget Progress ({selectedMonth})
                 </span>
-              ) : (
-                <span className="text-slate-300">
-                  {formatINR(overallRemainingPaise)} available across all budgets
+                <div className="flex items-baseline gap-3 flex-wrap">
+                  <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                    {formatINR(summary.spentPaise)}
+                  </h2>
+                  <span className="text-sm sm:text-base text-slate-400 font-medium">
+                    {summary.mode === "overall"
+                      ? `spent of your ${formatINR(summary.limitPaise)} overall budget`
+                      : `spent of ${formatINR(summary.limitPaise)} budgeted in your categories`}
+                  </span>
+                </div>
+                {summary.mode === "categories" && summary.unbudgetedPaise > 0 && (
+                  <p className="text-xs text-slate-400">
+                    Plus {formatINR(summary.unbudgetedPaise)} spent in categories without a budget.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4 shrink-0">
+                <div className="text-right">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Utilisation
+                  </p>
+                  <p
+                    className={`text-2xl font-extrabold font-mono ${isOverallExceeded
+                        ? "text-rose-400"
+                        : summary.utilisation >= 75
+                          ? "text-amber-400"
+                          : "text-brand-emerald-light"
+                      }`}
+                  >
+                    {summary.utilisation}%
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Master Progress Bar */}
+            <div className="space-y-2">
+              <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-500 ${getProgressColor(
+                    summary.utilisation,
+                    isOverallExceeded
+                  )}`}
+                  style={{
+                    width: `${Math.min(Math.max(summary.utilisation, 0), 100)}%`,
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <span>0%</span>
+                <span>
+                  {isOverallExceeded ? (
+                    <span className="text-rose-400 font-semibold">
+                      {summary.mode === "overall" ? "Overall budget" : "Category budgets"} exceeded by{" "}
+                      {formatINR(summary.exceededByPaise)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-300">
+                      {formatINR(summary.remainingPaise)} left
+                      {summary.mode === "overall" ? " in your overall budget" : " across your category budgets"}
+                    </span>
+                  )}
                 </span>
-              )}
-            </span>
-            <span>100%</span>
-          </div>
-        </div>
+                <span>100%</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Individual Category Cards */}
