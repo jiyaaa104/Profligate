@@ -68,8 +68,28 @@ const getDashboardSummary = asyncHandler(async (req, res) => {
   );
 });
 
+// Largest amount accepted for a "Can I afford this?" preview: ₹1 crore.
+const MAX_PURCHASE_PREVIEW_PAISE = 1_000_000_000;
+
 const getDashboardRunway = asyncHandler(async (req, res) => {
-  const runway = await getRunwayForUser(req.user._id);
+  let purchasePaise = 0;
+
+  if (req.query.purchasePaise !== undefined) {
+    purchasePaise = Number(req.query.purchasePaise);
+
+    if (
+      !Number.isSafeInteger(purchasePaise) ||
+      purchasePaise < 1 ||
+      purchasePaise > MAX_PURCHASE_PREVIEW_PAISE
+    ) {
+      throw new ApiError(
+        400,
+        "Purchase amount must be a whole number of paise between 1 and 1,000,000,000.",
+      );
+    }
+  }
+
+  const runway = await getRunwayForUser(req.user._id, { purchasePaise });
 
   if (!runway) {
     throw new ApiError(404, "User not found");

@@ -3,20 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Hourglass } from "lucide-react";
 import api from "../../services/api";
-
-// Dates arrive as calendar-day strings ("2026-11-22"), so format them in UTC
-// to stop the browser's timezone shifting them by a day.
-const formatDay = (dateKey) =>
-  new Intl.DateTimeFormat("en-IN", {
-    timeZone: "UTC",
-    day: "numeric",
-    month: "short",
-  }).format(new Date(dateKey));
-
-const formatRupees = (paise) =>
-  `₹${Math.floor(paise / 100).toLocaleString("en-IN")}`;
-
-const plural = (count, word) => `${count} ${word}${count === 1 ? "" : "s"}`;
+import AffordCheck from "./AffordCheck";
+import { formatDay, formatRupees, plural } from "../../utils/runwayFormat";
 
 const getCopy = (runway) => {
   const isOut = runway.balancePaise <= 0;
@@ -187,6 +175,7 @@ export default function RunwayCard() {
           </>
         )}
       </p>
+      <AffordCheck runway={runway} />
     </>,
   );
 }

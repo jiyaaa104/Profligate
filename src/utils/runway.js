@@ -151,8 +151,9 @@ export const calculateRunway = ({
 };
 
 // Load the user's data and calculate their runway. Returns null if the user
-// no longer exists.
-export const getRunwayForUser = async (userId) => {
+// no longer exists. `purchasePaise` previews the runway as if that amount
+// were spent right now ("Can I afford this?"); nothing is saved.
+export const getRunwayForUser = async (userId, { purchasePaise = 0 } = {}) => {
   const user = await User.findById(userId)
     .select(
       "openingBalancePaise timezone preferences.allowanceDay preferences.monthlySavingsGoalPaise",
@@ -243,7 +244,8 @@ export const getRunwayForUser = async (userId) => {
     balancePaise:
       (user.openingBalancePaise ?? 0) +
       totalFor("income") -
-      totalFor("expense"),
+      totalFor("expense") -
+      purchasePaise,
     dailyExpenses: dailyExpenses.map(({ _id, totalPaise }) => ({
       date: _id,
       totalPaise,
