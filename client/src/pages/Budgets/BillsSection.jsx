@@ -34,6 +34,22 @@ const ordinal = (n) => {
   return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
 };
 
+// "2026-11" -> "Nov" (or "Nov 2027" outside the current year).
+const periodLabel = (period) => {
+  const [year, month] = period.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "UTC",
+    month: "short",
+    ...(year !== new Date().getFullYear() && { year: "numeric" }),
+  }).format(date);
+};
+
+const currentPeriod = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+};
+
 const inputClass =
   "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-emerald";
 
@@ -261,6 +277,13 @@ export default function BillsSection() {
             <ul className="divide-y divide-white/5">
               {bills.map((bill) => {
                 const due = bill.nextDue;
+                // Paid for this month only if it was actually marked paid for this
+                // month or later. A bill added after its due day also has its next
+                // payment in a later month, but has never been paid.
+                const paidThisMonth =
+                  Boolean(due) &&
+                  Boolean(bill.lastPaidPeriod) &&
+                  bill.lastPaidPeriod >= currentPeriod();
                 const isBusy =
                   (payMutation.isPending && payMutation.variables === bill._id) ||
                   (deleteMutation.isPending && deleteMutation.variables === bill._id);
@@ -272,8 +295,15 @@ export default function BillsSection() {
                         {formatINR(bill.amountPaise)} · every month on the {ordinal(bill.dueDay)} · {bill.category}
                       </p>
                     </div>
-                    <div className="text-xs sm:w-40">
-                      {due?.overdue ? (
+                    <div className="text-xs sm:w-44">
+                      {paidThisMonth ? (
+                        <span className="flex flex-col">
+                          <span className="inline-flex items-center gap-1 text-brand-emerald-light font-semibold">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Paid for {periodLabel(bill.lastPaidPeriod)}
+                          </span>
+                          <span className="text-slate-400">Next due {formatDay(due.dueDate)}</span>
+                        </span>
+                      ) : due?.overdue ? (
                         <span className="inline-flex items-center gap-1 text-amber-300 font-semibold">
                           <AlertTriangle className="w-3.5 h-3.5" /> Overdue since {formatDay(due.dueDate)}
                         </span>
@@ -283,16 +313,30 @@ export default function BillsSection() {
                     </div>
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => payMutation.mutate(bill._id)}
+                        onClick={() => {
+                          if (
+                            paidThisMonth &&
+                            !window.confirm(
+                              `Record ${periodLabel(due.period)}'s ${formatINR(bill.amountPaise)} payment for ${bill.name} now?`,
+                            )
+                          ) {
+                            return;
+                          }
+                          payMutation.mutate(bill._id);
+                        }}
                         disabled={isBusy || !due}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-emerald/15 text-brand-emerald-light border border-brand-emerald/25 hover:bg-brand-emerald/25 disabled:opacity-50"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 ${
+                          paidThisMonth
+                            ? "text-slate-400 border border-white/10 hover:text-white hover:bg-white/5"
+                            : "bg-brand-emerald/15 text-brand-emerald-light border border-brand-emerald/25 hover:bg-brand-emerald/25"
+                        }`}
                       >
                         {payMutation.isPending && payMutation.variables === bill._id ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
                           <CheckCircle2 className="w-3.5 h-3.5" />
                         )}
-                        Mark paid
+                        {paidThisMonth ? "Pay early" : "Mark paid"}
                       </button>
                       <button onClick={() => startEdit(bill)} disabled={isBusy} title="Edit" aria-label={`Edit ${bill.name}`}
                         className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
