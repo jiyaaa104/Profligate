@@ -13,10 +13,13 @@ const getCopy = (runway) => {
   const goal = formatRupees(runway.savingsGoalPaise);
   // Nothing left to spend once the savings goal is set aside.
   const goalUsesEverything = hasGoal && !isOut && runway.spendablePaise <= 0;
+  const billsUncovered = !isOut && runway.billsCovered === false;
 
   let headline;
   if (isOut) {
     headline = "You've run out of recorded money.";
+  } else if (billsUncovered) {
+    headline = `Your balance doesn't cover your upcoming bills. You're ${formatRupees(runway.billsDuePaise - runway.balancePaise)} short.`;
   } else if (goalUsesEverything) {
     headline = `You can save ${formatRupees(runway.reservedPaise)} of your ${goal} goal if you spend nothing else.`;
   } else if (runway.daysLeft > 365) {
@@ -57,7 +60,7 @@ const getCopy = (runway) => {
   if (runway.willRunShort) {
     return {
       headline,
-      detail: isOut || goalUsesEverything
+      detail: isOut || goalUsesEverything || billsUncovered
         ? `Your next allowance is ${plural(runway.daysUntilAllowance, "day")} away.`
         : `That's ${plural(runway.daysShort, "day")} short of your next allowance.`,
       action: canAfford
@@ -140,6 +143,15 @@ export default function RunwayCard() {
   }
 
   const { headline, detail, action, note } = getCopy(runway);
+  const bills = runway.upcomingBills ?? [];
+  const billsLine =
+    bills.length > 0
+      ? `Includes ${formatRupees(runway.billsDuePaise)} set aside for ${plural(bills.length, "bill payment")} before ${
+          runway.nextAllowanceDate ? "your next allowance" : "the next 30 days"
+        }: ${bills
+          .map((b) => `${b.name} ${b.overdue ? "(overdue)" : `on ${formatDay(b.dueDate)}`}`)
+          .join(", ")}.`
+      : null;
 
   return shell(
     runway.willRunShort ? "border-amber-500/40" : "border-brand-emerald/25",
@@ -158,6 +170,17 @@ export default function RunwayCard() {
       )}
       {action && <p className="text-sm text-white font-semibold mt-1">{action}</p>}
       {note && <p className="text-sm text-slate-400 italic mt-1">{note}</p>}
+      {billsLine && (
+        <p className="text-sm text-slate-300 mt-1">
+          {billsLine}{" "}
+          <Link
+            to="/budgets"
+            className="font-semibold text-brand-emerald hover:text-brand-emerald-light"
+          >
+            Manage bills
+          </Link>
+        </p>
+      )}
       <p className="text-xs text-slate-400 mt-3">
         Based on your typical spending of about{" "}
         {formatRupees(runway.dailyPacePaise)} a day over the last{" "}

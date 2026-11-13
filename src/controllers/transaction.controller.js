@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import { Transaction } from "../models/transaction.model.js";
+import { FixedCost } from "../models/fixedCost.model.js";
 import { ApiError } from "../utils/apiError.js";
 import { ApiResponse } from "../utils/apiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -236,7 +237,23 @@ const deleteTransaction = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Transaction not found or unauthorized.");
   }
 
-  // 3. Return response.
+  // 3. Deleting the expense that paid a bill marks that bill unpaid again.
+  if (transaction.fixedCostId) {
+    const bill = await FixedCost.findOne({
+      _id: transaction.fixedCostId,
+      userId: req.user._id,
+      lastPaidTransactionId: transaction._id,
+    });
+
+    if (bill) {
+      bill.lastPaidPeriod = bill.previousPaidPeriod;
+      bill.previousPaidPeriod = null;
+      bill.lastPaidTransactionId = null;
+      await bill.save();
+    }
+  }
+
+  // 4. Return response.
   return res.status(200).json(
     new ApiResponse(
       200,

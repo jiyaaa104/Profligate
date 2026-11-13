@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { User } from "../models/user.models.js";
 import { Transaction } from "../models/transaction.model.js";
 import { Notification } from "../models/notification.model.js";
+import { FixedCost } from "../models/fixedCost.model.js";
 import {
   getDateParts,
   getValidTimezone,
@@ -16,6 +17,8 @@ const MIN_SPENDING_DAYS = 3;
 // doesn't make the forecast predict the student is about to go broke.
 const OUTLIER_MULTIPLIER = 3;
 const ALERT_COOLDOWN_DAYS = 3;
+// Without an allowance day, bills due in the next 30 days are set aside.
+const BILL_HORIZON_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const toDayNumber = ({ year, month, day }) =>
@@ -61,6 +64,64 @@ const getNextAllowance = (today, allowanceDay, incomeToday) => {
     : allowanceDayNumber(today.year, today.month + 1, allowanceDay);
 };
 
+// ── Monthly bills ────────────────────────────────────────────────────
+const toPeriod = (year, month) => `${year}-${String(month).padStart(2, "0")}`;
+
+const nextMonth = (year, month) =>
+  month === 12 ? { year: year + 1, month: 1 } : { year, month: month + 1 };
+
+// Each unpaid occurrence of a bill, starting from this month, until
+// `untilDayNumber` (exclusive). Occurrences before the bill was added, or in
+// months already paid, are skipped. Earlier months are ignored.
+const unpaidOccurrences = (bill, today, untilDayNumber, limit = 24) => {
+  const createdDayNumber = bill.createdDate
+    ? dateKeyToDayNumber(bill.createdDate)
+    : -Infinity;
+  const occurrences = [];
+  let { year, month } = today;
+
+  for (let i = 0; i < limit; i++) {
+    const dayNumber = allowanceDayNumber(year, month, bill.dueDay);
+    if (dayNumber >= untilDayNumber) break;
+
+    const period = toPeriod(year, month);
+    const isPaid = bill.lastPaidPeriod && period <= bill.lastPaidPeriod;
+
+    if (dayNumber >= createdDayNumber && !isPaid) {
+      occurrences.push({ dayNumber, period });
+    }
+    ({ year, month } = nextMonth(year, month));
+  }
+  return occurrences;
+};
+
+// The next payment a bill is waiting for (overdue or upcoming).
+export const getNextUnpaidOccurrence = (bill, today) => {
+  const [first] = unpaidOccurrences(bill, today, Infinity);
+  if (!first) return null;
+  return {
+    dueDate: dayNumberToDateKey(first.dayNumber),
+    period: first.period,
+    overdue: first.dayNumber < toDayNumber(today),
+  };
+};
+
+// Bills to set aside: every unpaid occurrence due before `horizonDayNumber`.
+export const getBillsDue = (bills, today, horizonDayNumber) => {
+  const todayNumber = toDayNumber(today);
+  return bills
+    .flatMap((bill) =>
+      unpaidOccurrences(bill, today, horizonDayNumber).map((occurrence) => ({
+        id: bill.id,
+        name: bill.name,
+        amountPaise: bill.amountPaise,
+        dueDate: dayNumberToDateKey(occurrence.dayNumber),
+        overdue: occurrence.dayNumber < todayNumber,
+      })),
+    )
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+};
+
 // Pure forecast. All dates are calendar days in the user's timezone.
 export const calculateRunway = ({
   balancePaise,
@@ -70,6 +131,7 @@ export const calculateRunway = ({
   allowanceDay = null,
   incomeToday = false,
   savingsGoalPaise = 0,
+  bills = [],
 }) => {
   const todayNumber = toDayNumber(today);
 
@@ -102,12 +164,28 @@ export const calculateRunway = ({
   );
   const dailyPacePaise = Math.max(1, Math.round(cappedTotal / windowDays));
 
-  // The savings goal is set aside first; only the rest is spendable.
+  const nextAllowance = allowanceDay
+    ? getNextAllowance(today, allowanceDay, incomeToday)
+    : null;
+
+  // Set aside, in order: bills due before the next allowance, then the
+  // savings goal. Only what's left is spendable.
   const availablePaise = Math.max(0, balancePaise);
-  const reservedPaise = Math.min(savingsGoalPaise, availablePaise);
-  const spendableBalance = availablePaise - reservedPaise;
+  const upcomingBills = getBillsDue(
+    bills,
+    today,
+    nextAllowance ?? todayNumber + BILL_HORIZON_DAYS,
+  );
+  const billsDuePaise = upcomingBills.reduce(
+    (sum, bill) => sum + bill.amountPaise,
+    0,
+  );
+  const billsReservedPaise = Math.min(billsDuePaise, availablePaise);
+  const afterBillsPaise = availablePaise - billsReservedPaise;
+  const reservedPaise = Math.min(savingsGoalPaise, afterBillsPaise);
+  const spendableBalance = afterBillsPaise - reservedPaise;
   const daysLeft = Math.floor(spendableBalance / dailyPacePaise);
-  const daysLeftWithoutSavings = Math.floor(availablePaise / dailyPacePaise);
+  const daysLeftWithoutSavings = Math.floor(afterBillsPaise / dailyPacePaise);
 
   const runway = {
     status: "ready",
@@ -120,7 +198,11 @@ export const calculateRunway = ({
     savingsGoalPaise,
     reservedPaise,
     spendablePaise: spendableBalance,
-    goalFits: savingsGoalPaise <= availablePaise,
+    goalFits: savingsGoalPaise <= afterBillsPaise,
+    upcomingBills,
+    billsDuePaise,
+    billsReservedPaise,
+    billsCovered: billsDuePaise <= availablePaise,
     daysLeftWithoutSavings,
     runOutDateWithoutSavings:
       savingsGoalPaise > 0
@@ -133,9 +215,8 @@ export const calculateRunway = ({
     safeDailyPaise: null,
   };
 
-  if (!allowanceDay) return runway;
+  if (nextAllowance === null) return runway;
 
-  const nextAllowance = getNextAllowance(today, allowanceDay, incomeToday);
   const daysUntilAllowance = nextAllowance - todayNumber;
 
   runway.nextAllowanceDate = dayNumberToDateKey(nextAllowance);
@@ -148,6 +229,19 @@ export const calculateRunway = ({
   }
 
   return runway;
+};
+
+// Convert a stored bill into the plain shape the forecast uses.
+export const toBillInput = (bill, timezone) => {
+  const created = getDateParts(bill.createdAt ?? new Date(), timezone);
+  return {
+    id: String(bill._id),
+    name: bill.name,
+    amountPaise: bill.amountPaise,
+    dueDay: bill.dueDay,
+    lastPaidPeriod: bill.lastPaidPeriod ?? null,
+    createdDate: dayNumberToDateKey(toDayNumber(created)),
+  };
 };
 
 // Load the user's data and calculate their runway. Returns null if the user
@@ -192,7 +286,8 @@ export const getRunwayForUser = async (userId, { purchasePaise = 0 } = {}) => {
     timezone,
   );
 
-  const [totals, dailyExpenses, firstExpense, incomeToday] = await Promise.all([
+  const [totals, dailyExpenses, firstExpense, incomeToday, fixedCosts] =
+    await Promise.all([
     Transaction.aggregate([
       { $match: { userId: objectId } },
       { $group: { _id: "$type", total: { $sum: "$amountPaise" } } },
@@ -202,6 +297,9 @@ export const getRunwayForUser = async (userId, { purchasePaise = 0 } = {}) => {
         $match: {
           userId: objectId,
           type: "expense",
+          // Bills are set aside separately, so paying one doesn't also
+          // count as everyday spending.
+          fixedCostId: { $exists: false },
           transactionDate: { $gte: windowStart, $lt: todayStart },
         },
       },
@@ -227,6 +325,9 @@ export const getRunwayForUser = async (userId, { purchasePaise = 0 } = {}) => {
       type: "income",
       transactionDate: { $gte: todayStart, $lt: tomorrowStart },
     }),
+    FixedCost.find({ userId: objectId })
+      .select("name amountPaise dueDay lastPaidPeriod createdAt")
+      .lean(),
   ]);
 
   const totalFor = (type) => totals.find((t) => t._id === type)?.total ?? 0;
@@ -255,6 +356,7 @@ export const getRunwayForUser = async (userId, { purchasePaise = 0 } = {}) => {
     allowanceDay: user.preferences?.allowanceDay ?? null,
     savingsGoalPaise: user.preferences?.monthlySavingsGoalPaise ?? 0,
     incomeToday: Boolean(incomeToday),
+    bills: fixedCosts.map((bill) => toBillInput(bill, timezone)),
   });
 };
 
@@ -276,12 +378,25 @@ export const buildRunwayMessage = (runway) => {
     return `Your recorded balance has run out, ${runway.daysShort} ${dayLabel} before your next allowance.`;
   }
 
+  if (!runway.billsCovered) {
+    return `Your balance of ${formatRupees(runway.balancePaise)} doesn't cover the ${formatRupees(runway.billsDuePaise)} in bills due before your next allowance. You're ${formatRupees(runway.billsDuePaise - runway.balancePaise)} short.`;
+  }
+
   if (runway.savingsGoalPaise > 0 && runway.spendablePaise <= 0) {
     return `Your balance of ${formatRupees(runway.balancePaise)} doesn't cover your ${goal} savings goal, so anything you spend before your next allowance comes out of your savings.`;
   }
 
-  const savingNote =
-    runway.savingsGoalPaise > 0 ? ` while keeping ${goal} aside for savings` : "";
+  // e.g. " while keeping ₹4,499 aside for bills and ₹2,000 for savings"
+  const asides = [];
+  if (runway.billsDuePaise > 0) {
+    asides.push([formatRupees(runway.billsDuePaise), "bills"]);
+  }
+  if (runway.savingsGoalPaise > 0) asides.push([goal, "savings"]);
+  const savingNote = asides
+    .map(([amount, purpose], i) =>
+      i === 0 ? ` while keeping ${amount} aside for ${purpose}` : ` and ${amount} for ${purpose}`,
+    )
+    .join("");
   const opening = `At this pace your money lasts until ${formatDay(runway.runOutDate)}${savingNote}, ${runway.daysShort} ${dayLabel} short of your next allowance.`;
 
   return runway.safeDailyPaise >= 100

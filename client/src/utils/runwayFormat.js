@@ -36,6 +36,16 @@ export const describePurchase = (before, after, amountPaise) => {
     };
   }
 
+  const billsShortfall = (after.billsDuePaise ?? 0) - (after.billsReservedPaise ?? 0);
+  if (billsShortfall > 0) {
+    return {
+      tone: "warn",
+      lines: [
+        `This would leave you ${formatRupees(billsShortfall)} short for the ${formatRupees(after.billsDuePaise)} in bills due before your next allowance.`,
+      ],
+    };
+  }
+
   const savingsUsed = before.reservedPaise - after.reservedPaise;
   if (before.savingsGoalPaise > 0 && savingsUsed > 0) {
     return {

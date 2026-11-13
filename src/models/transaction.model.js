@@ -47,6 +47,12 @@ const transactionSchema = new Schema(
       enum: ["cash", "card", "upi", "netbanking", "other"],
       default: "upi",
     },
+
+    // Set when the expense was created by marking a monthly bill as paid.
+    fixedCostId: {
+      type: Schema.Types.ObjectId,
+      ref: "FixedCost",
+    },
   },
   { timestamps: true },
 );

@@ -44,6 +44,7 @@ import budgetRouter from "./routes/budget.routes.js";
 import userRouter from "./routes/user.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
 import aiRouter from "./routes/ai.routes.js";
+import fixedCostRouter from "./routes/fixedCost.routes.js";
 
 // Route declarations
 app.use("/api/v1/healthcheck", healthCheckRouter);
@@ -54,6 +55,7 @@ app.use("/api/v1/budgets", budgetRouter);
 app.use("/api/v1/users", userRouter);
 app.use("/api/v1/notifications", notificationRouter);
 app.use("/api/v1/ai", aiRouter);
+app.use("/api/v1/fixed-costs", fixedCostRouter);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Profligate API!");

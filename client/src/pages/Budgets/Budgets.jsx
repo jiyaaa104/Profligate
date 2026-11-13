@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import api from "../../services/api";
 import { formatINR } from "../../utils/formatters";
+import BillsSection from "./BillsSection";
 
 const BUDGET_CATEGORIES = [
   "Overall",
@@ -421,6 +422,8 @@ export default function Budgets() {
           </div>
         )}
       </div>
+
+      <BillsSection />
 
       {/* Modal: Add Budget */}
       {isModalOpen && (
