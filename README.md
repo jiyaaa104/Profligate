@@ -14,11 +14,11 @@ Students live on a fixed allowance, stipend or pocket money, spent in lots of sm
 Works on desktop and phones.
 
 **Live demo:** [profligate.vercel.app](https://profligate.vercel.app)
-![Dashboard with the Money Runway card -> ](docs/screenshots/dashboard.png)
-![Transactions page -> ](docs/screenshots/transactions.png)
-![Spending charts -> ](docs/screenshots/charts.png)
-![Monthly bills -> ](docs/screenshots/bills.png)
-![On a phone -> ](docs/screenshots/mobile.png)
+![Dashboard with the Money Runway card](docs/screenshots/dashboard.png)
+![Transactions page](docs/screenshots/transactions.png)
+![Spending charts](docs/screenshots/charts.png)
+![Monthly bills](docs/screenshots/bills.png)
+![On a phone](docs/screenshots/mobile.png)
 
 
 ## Features

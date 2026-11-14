@@ -72,7 +72,7 @@ const recordFailedAttempt = async (
       $setOnInsert: { userId, attemptType },
     },
     {
-      new: true,
+      returnDocument: "after",
       upsert: true,
       setDefaultsOnInsert: true,
     },
