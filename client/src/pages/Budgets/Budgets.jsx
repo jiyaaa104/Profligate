@@ -203,7 +203,7 @@ export default function Budgets() {
               type="month"
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-white focus:outline-none cursor-pointer"
+              className="bg-transparent text-white focus:outline-none cursor-pointer py-1.5 min-h-[32px]"
             />
           </div>
 

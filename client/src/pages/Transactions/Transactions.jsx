@@ -551,7 +551,7 @@ export default function Transactions() {
           FILTER BAR
       ========================================== */}
 
-      <div className="glass-panel rounded-xl p-2 border-white/5 flex items-center justify-between gap-2 overflow-x-auto">
+      <div className="glass-panel rounded-xl p-2 border-white/5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <span className="text-xs font-semibold text-slate-400 flex items-center gap-1 pl-2 pr-1">
             <Filter className="w-3.5 h-3.5" />
@@ -560,7 +560,7 @@ export default function Transactions() {
 
           <button
             onClick={() => handleFilterChange("")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3 py-2 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
               typeFilter === ""
                 ? "bg-white/10 text-white font-semibold"
                 : "text-slate-400 hover:text-white hover:bg-white/5"
@@ -571,7 +571,7 @@ export default function Transactions() {
 
           <button
             onClick={() => handleFilterChange("expense")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3 py-2 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
               typeFilter === "expense"
                 ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
                 : "text-slate-400 hover:text-rose-300 hover:bg-white/5"
@@ -582,7 +582,7 @@ export default function Transactions() {
 
           <button
             onClick={() => handleFilterChange("income")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-3 py-2 min-h-[36px] rounded-lg text-xs font-medium transition-all ${
               typeFilter === "income"
                 ? "bg-emerald-500/20 text-brand-emerald-light border border-emerald-500/30"
                 : "text-slate-400 hover:text-emerald-300 hover:bg-white/5"
@@ -658,8 +658,85 @@ export default function Transactions() {
           </div>
         ) : (
           // Transactions List
+          <>
+          {/* Phones and tablets: one card per transaction (the table needs ~660px). */}
+          <ul className="lg:hidden divide-y divide-white/5">
+            {transactions.map((tx) => {
+              const isIncome = tx.type === "income";
+              const isDeleting =
+                deleteMutation.isPending && deleteMutation.variables === tx._id;
+              const paymentLabel =
+                PAYMENT_METHODS.find((pm) => pm.value === tx.paymentMethod)?.label || "UPI";
+              const name = tx.description || tx.category;
 
-          <div className="overflow-x-auto">
+              return (
+                <li key={tx._id} className="p-4 flex items-start gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                      isIncome
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                        : "bg-rose-500/10 border-rose-500/20 text-rose-400"
+                    }`}
+                  >
+                    {isIncome ? (
+                      <ArrowDownLeft className="w-4 h-4" />
+                    ) : (
+                      <ArrowUpRight className="w-4 h-4" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="font-semibold text-white text-sm leading-snug break-words min-w-0">
+                        {name}
+                      </p>
+                      <span
+                        className={`font-mono font-bold text-sm whitespace-nowrap ${
+                          isIncome ? "text-emerald-400" : "text-slate-100"
+                        }`}
+                      >
+                        {isIncome ? "+" : "-"}
+                        {formatINR(tx.amountPaise)}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 flex items-center justify-between gap-2">
+                      <p className="text-xs text-slate-400 min-w-0">
+                        <span className="capitalize">{tx.category}</span> ·{" "}
+                        {formatDate(tx.transactionDate)} · {paymentLabel}
+                      </p>
+
+                      <div className="flex items-center shrink-0 -mr-2">
+                        <button
+                          onClick={() => openEditModal(tx)}
+                          disabled={isDeleting}
+                          aria-label={`Edit transaction ${name}`}
+                          className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tx._id, name)}
+                          disabled={deleteMutation.isPending}
+                          aria-label={`Delete transaction ${name}`}
+                          className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Wider screens: the full table */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/10 text-xs font-semibold text-slate-400 uppercase tracking-wider bg-white/[0.02]">
@@ -793,6 +870,7 @@ export default function Transactions() {
               </tbody>
             </table>
           </div>
+          </>
         )}
 
         {/* ======================================
@@ -809,7 +887,7 @@ export default function Transactions() {
               <button
                 onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
                 disabled={page <= 1 || isFetching}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed border border-white/5 transition-colors"
+                className="flex items-center gap-1 px-3 py-2 min-h-[40px] rounded-lg bg-white/5 hover:bg-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed border border-white/5 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
 
@@ -821,7 +899,7 @@ export default function Transactions() {
                   setPage((prev) => Math.min(prev + 1, totalPages))
                 }
                 disabled={page >= totalPages || isFetching}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed border border-white/5 transition-colors"
+                className="flex items-center gap-1 px-3 py-2 min-h-[40px] rounded-lg bg-white/5 hover:bg-white/10 text-white disabled:opacity-40 disabled:cursor-not-allowed border border-white/5 transition-colors"
               >
                 <span>Next</span>
 

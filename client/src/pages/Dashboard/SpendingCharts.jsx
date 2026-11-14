@@ -74,7 +74,7 @@ function ChartCard({ title, summary, table, children, className = "", isFetching
         {table && (
           <button
             onClick={() => setShowTable((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-2 py-1 rounded-lg hover:bg-white/5 shrink-0"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white px-2.5 py-2 min-h-[36px] rounded-lg hover:bg-white/5 shrink-0"
             aria-pressed={showTable}
           >
             {showTable ? <BarChart3 className="w-3.5 h-3.5" /> : <Table2 className="w-3.5 h-3.5" />}

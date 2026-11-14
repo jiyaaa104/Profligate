@@ -325,7 +325,7 @@ export default function BillsSection() {
                           payMutation.mutate(bill._id);
                         }}
                         disabled={isBusy || !due}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50 ${
+                        className={`flex items-center gap-1.5 px-3 py-2 min-h-[36px] rounded-lg text-xs font-semibold disabled:opacity-50 ${
                           paidThisMonth
                             ? "text-slate-400 border border-white/10 hover:text-white hover:bg-white/5"
                             : "bg-brand-emerald/15 text-brand-emerald-light border border-brand-emerald/25 hover:bg-brand-emerald/25"
@@ -339,7 +339,7 @@ export default function BillsSection() {
                         {paidThisMonth ? "Pay early" : "Mark paid"}
                       </button>
                       <button onClick={() => startEdit(bill)} disabled={isBusy} title="Edit" aria-label={`Edit ${bill.name}`}
-                        className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
+                        className="p-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5">
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
@@ -351,7 +351,7 @@ export default function BillsSection() {
                         disabled={isBusy}
                         title="Delete"
                         aria-label={`Delete ${bill.name}`}
-                        className="p-2 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                        className="p-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
