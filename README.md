@@ -135,10 +135,11 @@ Open [http://localhost:5173](http://localhost:5173). In development, Vite proxie
 npm test
 ```
 
-43 tests built on Node's own test runner (no extra dependencies) cover the money logic and the APIs around it:
+60 tests built on Node's own test runner (no extra dependencies) cover the money logic, sign-in, and the APIs around it:
 
 - **Money Runway:** spending pace and one-off spikes, allowance dates (including the 31st and allowance-due-today), savings goal, alerts
 - **Monthly bills:** due dates, overdue bills, setting bills aside before savings, mark paid and undo
+- **Accounts:** sign-up validation and password hashing, email verification (expiry, single use), login lockout after 5 failures, single-use refresh tokens (unique even for two logins in the same second), logout, and password reset
 - **"Can I afford this?"** previews, **transaction editing**, the **Budgets summary**, and the **dashboard charts** data
 
 The tests replace the database with in-memory stubs and freeze the clock at a fixed date, so they need no MongoDB or API keys and give the same result every day. GitHub Actions runs them, plus a frontend build, on every push and pull request to `main` ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
@@ -183,7 +184,6 @@ Profligate/
 
 ## Roadmap
 
-- Tests for authentication flows
 - Installable mobile app (PWA)
 - Recurring income (e.g. adding your allowance automatically) and CSV export
 

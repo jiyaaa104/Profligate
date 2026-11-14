@@ -183,7 +183,13 @@ userSchema.methods.generateRefreshToken = function () {
   return jwt.sign(
     { _id: this._id },
     process.env.REFRESH_TOKEN_SECRET,
-    { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "7d" },
+    {
+      expiresIn: process.env.REFRESH_TOKEN_EXPIRY || "7d",
+      // A random id makes every token unique, even two issued in the same
+      // second (a double-click on Log In, two devices). Tokens are stored
+      // with a unique index, so identical ones would make the second fail.
+      jwtid: crypto.randomUUID(),
+    },
   );
 };
 
