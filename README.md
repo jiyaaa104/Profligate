@@ -1,5 +1,7 @@
 # Profligate
 
+[![CI](https://github.com/jiyaaa104/Profligate/actions/workflows/ci.yml/badge.svg)](https://github.com/jiyaaa104/Profligate/actions/workflows/ci.yml)
+
 **A student finance app that tells you when your money will run out — before it does.**
 
 Students live on a fixed allowance, stipend or pocket money, spent in lots of small UPI payments. Most expense trackers only show what you've already spent. Profligate forecasts how long your balance will last at your current pace, warns you if it won't reach your next allowance, and tells you how much you can safely spend per day.
@@ -55,7 +57,7 @@ It needs at least 7 days of history and 3 days with spending before it makes a f
 
 ## Running locally
 
-**Prerequisites:** Node.js 18+, a MongoDB connection string, and (optionally) Brevo and Gemini API keys.
+**Prerequisites:** Node.js 22+, a MongoDB connection string, and (optionally) Brevo and Gemini API keys.
 
 ```bash
 git clone https://github.com/jiyaaa104/Profligate.git
@@ -96,6 +98,20 @@ npm run dev --prefix client
 
 Open [http://localhost:5173](http://localhost:5173). In development, Vite proxies `/api` to the API on port 8000.
 
+## Tests
+
+```bash
+npm test
+```
+
+43 tests built on Node's own test runner (no extra dependencies) cover the money logic and the APIs around it:
+
+- **Money Runway:** spending pace and one-off spikes, allowance dates (including the 31st and allowance-due-today), savings goal, alerts
+- **Monthly bills:** due dates, overdue bills, setting bills aside before savings, mark paid and undo
+- **"Can I afford this?"** previews, **transaction editing**, the **Budgets summary**, and the **dashboard charts** data
+
+The tests replace the database with in-memory stubs and freeze the clock at a fixed date, so they need no MongoDB or API keys and give the same result every day. GitHub Actions runs them, plus a frontend build, on every push and pull request to `main` ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
 ## API overview
 
 All routes are under `/api/v1`. Everything except auth and the health check requires a logged-in user.
@@ -127,12 +143,13 @@ Profligate/
 │   ├── src/components/   # Layouts and animated background
 │   ├── src/services/     # Axios instance with token refresh
 │   └── vercel.json       # SPA routing and /api rewrite
+├── tests/                # Automated tests (npm test)
 └── docs/PRD.md           # Full product requirements document
 ```
 
 ## Roadmap
 
-- Automated tests for financial calculations and authentication
+- Tests for authentication flows
 - Installable mobile app (PWA)
 - Recurring transactions and CSV export
 
